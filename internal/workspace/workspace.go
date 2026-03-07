@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,7 @@ type Result struct {
 
 // Manager handles workspace lifecycle operations.
 type Manager struct {
+	mu     sync.RWMutex
 	root   string
 	logger *slog.Logger
 }
@@ -46,21 +48,28 @@ func NewManager(root string, logger *slog.Logger) *Manager {
 
 // Root returns the workspace root path.
 func (m *Manager) Root() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.root
 }
 
 // UpdateRoot updates the workspace root path (for dynamic config reload).
 func (m *Manager) UpdateRoot(root string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.root = root
 }
 
 // WorkspacePath computes the absolute workspace path for an issue identifier.
 func (m *Manager) WorkspacePath(identifier string) (string, error) {
+	m.mu.RLock()
+	root := m.root
+	m.mu.RUnlock()
 	key := SanitizeIdentifier(identifier)
-	wsPath := filepath.Join(m.root, key)
+	wsPath := filepath.Join(root, key)
 
 	// Safety invariant: workspace path must be under workspace root
-	absRoot, err := filepath.Abs(m.root)
+	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve workspace root: %w", err)
 	}
@@ -138,7 +147,10 @@ func (m *Manager) RemoveWorkspace(identifier string, beforeRemoveScript string, 
 
 // ValidateWorkspacePath checks that the given path is a valid workspace under root.
 func (m *Manager) ValidateWorkspacePath(wsPath string) error {
-	absRoot, err := filepath.Abs(m.root)
+	m.mu.RLock()
+	root := m.root
+	m.mu.RUnlock()
+	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return fmt.Errorf("failed to resolve workspace root: %w", err)
 	}

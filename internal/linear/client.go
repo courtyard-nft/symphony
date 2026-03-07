@@ -40,8 +40,9 @@ type BlockerRef struct {
 
 // IssueStateInfo is a minimal issue record for reconciliation.
 type IssueStateInfo struct {
-	ID    string `json:"id"`
-	State string `json:"state"`
+	ID         string `json:"id"`
+	Identifier string `json:"identifier"`
+	State      string `json:"state"`
 }
 
 // Client is a Linear GraphQL API client.
@@ -309,8 +310,9 @@ func (c *Client) FetchIssuesByStates(ctx context.Context, projectSlug string, st
 
 		for _, node := range result.Issues.Nodes {
 			allIssues = append(allIssues, IssueStateInfo{
-				ID:    node.ID,
-				State: node.State.Name,
+				ID:         node.ID,
+				Identifier: node.Identifier,
+				State:      node.State.Name,
 			})
 		}
 

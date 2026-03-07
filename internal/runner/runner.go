@@ -81,6 +81,7 @@ type Runner struct {
 	stdin     io.WriteCloser
 	stdout    io.ReadCloser
 	stderr    io.ReadCloser
+	scanner   *bufio.Scanner // shared scanner for stdout to avoid data loss
 	pid       string
 	requestID int
 }
@@ -136,6 +137,10 @@ func (r *Runner) Start(ctx context.Context, workspacePath string) error {
 	if cmd.Process != nil {
 		r.pid = fmt.Sprintf("%d", cmd.Process.Pid)
 	}
+
+	// Create a single shared scanner for stdout
+	r.scanner = bufio.NewScanner(r.stdout)
+	r.scanner.Buffer(make([]byte, 10*1024*1024), 10*1024*1024) // 10MB max line
 
 	// Drain stderr in background
 	go r.drainStderr()
@@ -273,9 +278,7 @@ func (r *Runner) StreamTurn(ctx context.Context, onEvent func(RunnerEvent)) (*Se
 	turnCtx, cancel := context.WithTimeout(ctx, turnTimeout)
 	defer cancel()
 
-	scanner := bufio.NewScanner(r.stdout)
-	scanner.Buffer(make([]byte, 10*1024*1024), 10*1024*1024) // 10MB
-
+	// Use the shared scanner to maintain continuity with handshake reads
 	for {
 		select {
 		case <-turnCtx.Done():
@@ -286,15 +289,15 @@ func (r *Runner) StreamTurn(ctx context.Context, onEvent func(RunnerEvent)) (*Se
 		default:
 		}
 
-		if !scanner.Scan() {
-			if err := scanner.Err(); err != nil {
+		if !r.scanner.Scan() {
+			if err := r.scanner.Err(); err != nil {
 				return &SessionResult{Error: fmt.Sprintf("port_exit: %v", err), Event: EventTurnFailed}, err
 			}
 			// EOF — process exited
 			return &SessionResult{Error: "port_exit", Event: EventTurnFailed}, fmt.Errorf("port_exit: codex process exited")
 		}
 
-		line := scanner.Text()
+		line := r.scanner.Text()
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
@@ -474,9 +477,7 @@ func (r *Runner) readResponseWithTimeout(ctx context.Context, id int, timeout ti
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	scanner := bufio.NewScanner(r.stdout)
-	scanner.Buffer(make([]byte, 10*1024*1024), 10*1024*1024)
-
+	// Use the shared scanner to avoid data loss between handshake and streaming
 	for {
 		select {
 		case <-timeoutCtx.Done():
@@ -484,14 +485,14 @@ func (r *Runner) readResponseWithTimeout(ctx context.Context, id int, timeout ti
 		default:
 		}
 
-		if !scanner.Scan() {
-			if err := scanner.Err(); err != nil {
+		if !r.scanner.Scan() {
+			if err := r.scanner.Err(); err != nil {
 				return nil, fmt.Errorf("scanner error: %w", err)
 			}
 			return nil, fmt.Errorf("EOF waiting for response id=%d", id)
 		}
 
-		line := scanner.Text()
+		line := r.scanner.Text()
 		if strings.TrimSpace(line) == "" {
 			continue
 		}

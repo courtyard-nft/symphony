@@ -676,8 +676,8 @@ func (o *Orchestrator) startupTerminalCleanup(ctx context.Context) {
 	}
 
 	for _, issue := range terminalIssues {
-		key := workspace.SanitizeIdentifier(issue.ID)
-		_ = o.wsMgr.RemoveWorkspace(key, o.cfg.HookBeforeRemove(), o.cfg.HookTimeoutMS())
+		// Use Identifier (e.g. "MT-649") not ID (UUID) — workspaces are keyed by identifier
+		_ = o.wsMgr.RemoveWorkspace(issue.Identifier, o.cfg.HookBeforeRemove(), o.cfg.HookTimeoutMS())
 	}
 
 	o.logger.Info("startup terminal cleanup complete", "cleaned", len(terminalIssues))
