@@ -215,10 +215,13 @@ func (r *Runner) Handshake(ctx context.Context, workspacePath string) (string, e
 		return "", fmt.Errorf("response_timeout: thread/start response: %w", err)
 	}
 
-	// Extract threadId from result
+	// Extract threadId from result — codex returns it as result.threadId, result.thread_id, or result.thread.id
 	threadIDStr := extractNestedString(threadResp, "result", "threadId")
 	if threadIDStr == "" {
 		threadIDStr = extractNestedString(threadResp, "result", "thread_id")
+	}
+	if threadIDStr == "" {
+		threadIDStr = extractNestedString(threadResp, "result", "thread", "id")
 	}
 	if threadIDStr == "" {
 		// Try top-level
@@ -592,10 +595,18 @@ func extractUsage(msg map[string]interface{}) *TokenUsage {
 
 func findUsageInMap(m map[string]interface{}) *TokenUsage {
 	// Look for total_token_usage, tokenUsage, usage
-	for _, key := range []string{"total_token_usage", "tokenUsage", "usage"} {
+	for _, key := range []string{"total_token_usage", "usage"} {
 		if u, ok := m[key].(map[string]interface{}); ok {
 			return parseUsageMap(u)
 		}
+	}
+	// tokenUsage has a nested "total" sub-object (thread/tokenUsage/updated shape)
+	if tu, ok := m["tokenUsage"].(map[string]interface{}); ok {
+		if total, ok := tu["total"].(map[string]interface{}); ok {
+			return parseUsageMap(total)
+		}
+		// flat shape fallback
+		return parseUsageMap(tu)
 	}
 	return nil
 }
