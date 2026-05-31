@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.courtyard.symphony</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/courty/symphony/symphony</string>
+        <string>--workflow</string>
+        <string>/Users/courty/symphony/WORKFLOW.md</string>
+        <string>--port</string>
+        <string>8080</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/courty/symphony</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>LINEAR_API_KEY</key>
+        <string>REPLACE_WITH_LINEAR_KEY</string>
+        <key>HOME</key>
+        <string>/Users/courty</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- Restart on crash — this is the core production hardening -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+
+    <!-- Wait 5 seconds before restarting after a crash -->
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+
+    <!-- Log stdout and stderr -->
+    <key>StandardOutPath</key>
+    <string>/Users/courty/symphony/logs/symphony.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/courty/symphony/logs/symphony-error.log</string>
+
+    <!-- Run at load (i.e. on login) -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Only run when logged in (not as a system daemon) -->
+    <key>SessionCreate</key>
+    <true/>
+</dict>
+</plist>
