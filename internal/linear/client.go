@@ -331,8 +331,8 @@ func (c *Client) FetchIssuesByStates(ctx context.Context, projectSlug string, st
 // issueStatesByIDsQuery is the GraphQL query for fetching issue states by IDs.
 const issueStatesByIDsQuery = `
 query IssueStatesByIDs($ids: [ID!]!) {
-  nodes(ids: $ids) {
-    ... on Issue {
+  issues(filter: { id: { in: $ids } }) {
+    nodes {
       id
       identifier
       title
@@ -395,14 +395,16 @@ func (c *Client) FetchIssueStatesByIDs(ctx context.Context, issueIDs []string) (
 	}
 
 	var result struct {
-		Nodes []json.RawMessage `json:"nodes"`
+		Issues struct {
+			Nodes []json.RawMessage `json:"nodes"`
+		} `json:"issues"`
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("linear_unknown_payload: failed to parse nodes: %w", err)
 	}
 
 	var issues []Issue
-	for _, raw := range result.Nodes {
+	for _, raw := range result.Issues.Nodes {
 		var ri rawIssue
 		if err := json.Unmarshal(raw, &ri); err != nil {
 			continue

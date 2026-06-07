@@ -6,6 +6,7 @@ package workflow
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -157,6 +158,36 @@ func (i *Issue) ToMap() map[string]interface{} {
 		"created_at":  i.CreatedAt,
 		"updated_at":  i.UpdatedAt,
 	}
+}
+
+// TemplateForLabels looks for a label-specific prompt template file next to the
+// loader's WORKFLOW.md. It checks templates/<label>.md for each label (in order)
+// and returns the first one found. If none matches, it returns an empty string,
+// indicating the caller should fall back to the base WORKFLOW.md template.
+//
+// Template files may contain YAML front matter (which is ignored — they inherit
+// config from the base WORKFLOW.md) or plain markdown prompt content.
+func (l *Loader) TemplateForLabels(labels []string) string {
+	base := filepath.Dir(l.path)
+	for _, label := range labels {
+		// Normalize: lowercase, spaces → hyphens
+		key := strings.ToLower(strings.ReplaceAll(label, " ", "-"))
+		candidate := filepath.Join(base, "templates", key+".md")
+		data, err := os.ReadFile(candidate)
+		if err != nil {
+			continue
+		}
+		// Parse to strip YAML front matter if present; use only the prompt body
+		if def, err := Parse(string(data)); err == nil && def.PromptTemplate != "" {
+			return def.PromptTemplate
+		}
+		// If parsing fails or body is empty, use raw content (trimmed)
+		body := strings.TrimSpace(string(data))
+		if body != "" {
+			return body
+		}
+	}
+	return ""
 }
 
 // RenderPrompt renders the prompt template with the given issue and attempt.

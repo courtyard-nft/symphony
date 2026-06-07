@@ -318,6 +318,15 @@ func (o *Orchestrator) runWorker(ctx context.Context, issue linear.Issue, attemp
 		promptTemplate = wfDef.PromptTemplate
 	}
 
+	// Override with a label-specific template if one exists (e.g. templates/frontend.md).
+	// Falls back to the base WORKFLOW.md template if no matching template file is found.
+	if len(issue.Labels) > 0 {
+		if labelTemplate := o.wfLoader.TemplateForLabels(issue.Labels); labelTemplate != "" {
+			promptTemplate = labelTemplate
+			logger.Info("using label-specific template", "labels", issue.Labels)
+		}
+	}
+
 	wfIssue := linearIssueToWorkflowIssue(issue)
 	prompt, err := workflow.RenderPrompt(promptTemplate, wfIssue, attempt)
 	if err != nil {
